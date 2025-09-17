@@ -5,28 +5,15 @@ import os
 
 st.set_page_config(layout="wide")
 
-# --- <<< 모바일 화면 최적화를 위한 스타일 코드 추가 >>> ---
-# 테이블의 글자 크기와 여백을 줄여 화면에 더 많은 정보를 표시합니다.
+# 모바일 화면 최적화를 위한 스타일 코드
 st.markdown("""
 <style>
-    /* 데이터프레임의 기본 CSS를 수정합니다 */
-    .stDataFrame {
-        font-size: 0.8rem;
-    }
-    /* 테이블 셀(th, td)의 여백을 줄입니다 */
-    .stDataFrame th, .stDataFrame td {
-        padding: 4px 5px;
-    }
-    /* expander 내부의 테이블도 동일하게 적용합니다 */
-    .streamlit-expander .stDataFrame {
-        font-size: 0.8rem;
-    }
-    .streamlit-expander .stDataFrame th, .streamlit-expander .stDataFrame td {
-        padding: 4px 5px;
-    }
+    .stDataFrame { font-size: 0.8rem; }
+    .stDataFrame th, .stDataFrame td { padding: 4px 5px; }
+    .streamlit-expander .stDataFrame { font-size: 0.8rem; }
+    .streamlit-expander .stDataFrame th, .streamlit-expander .stDataFrame td { padding: 4px 5px; }
 </style>
 """, unsafe_allow_html=True)
-
 
 st.title('📱 재고 현황 대시보드 (최종 완성본)')
 
@@ -82,7 +69,8 @@ st.write("📈 **요약 모델 바로 조회**")
 top_20_models = top_20_summary.index.tolist()
 if 'clicked_model' not in st.session_state: st.session_state.clicked_model = None
 
-cols = st.columns(5)
+# --- <<< 버튼 간격을 "small"로 조정 >>> ---
+cols = st.columns(5, gap="small")
 for i, model_name in enumerate(top_20_models):
     if cols[i % 5].button(model_name, key=f"model_btn_{i}"):
         st.session_state.clicked_model = model_name
@@ -102,11 +90,8 @@ if selected_models:
     detail_agg['재고회전율'] = (detail_agg['판매수량'] / total_agg).apply(lambda x: f"{x:.2%}")
     
     detail_agg['영업그룹'] = pd.Categorical(detail_agg['영업그룹'], categories=df['영업그룹'].cat.categories, ordered=True)
-    
-    # --- <<< 순번 제거를 위해 to_html 사용 및 정렬 >>> ---
     sorted_detail_agg = detail_agg.sort_values(by=['영업그룹', '판매수량'], ascending=[True, False])
     st.markdown(sorted_detail_agg.to_html(index=False), unsafe_allow_html=True)
-
 
 st.header('📄 계층형 상세 데이터 보기')
 
@@ -143,6 +128,4 @@ for group in [g for g in group_options if g in df_filtered['영업그룹'].uniqu
                         
                         model_total = model_detail['재고수량'] + model_detail['판매수량']
                         model_detail['재고회전율'] = (model_detail['판매수량'] / model_total).apply(lambda x: f"{x:.2%}")
-                        
-                        # --- <<< 순번 제거를 위해 to_html 사용 >>> ---
                         st.markdown(model_detail.to_html(index=False), unsafe_allow_html=True)
