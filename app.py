@@ -9,15 +9,21 @@ st.title('📱 재고 현황 대시보드')
 # Render 환경 변수에서 데이터베이스 URL 가져오기
 DB_URL = os.environ.get('DATABASE_URL')
 
+# <<< --- 수정된 부분 시작 --- >>>
+# SQLAlchemy가 주소를 올바르게 인식하도록 URL 형식 수정
+if DB_URL and DB_URL.startswith("postgres://"):
+    DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
+# <<< --- 수정된 부분 끝 --- >>>
+
 # 데이터베이스 연결
 try:
     conn = st.connection('db', type='sql', url=DB_URL)
-    df = conn.query('SELECT * FROM inventory_data', ttl=600) # 10분마다 데이터 새로고침
+    df = conn.query('SELECT * FROM inventory_data', ttl=600)
 except Exception as e:
     st.error(f"데이터베이스 연결에 실패했습니다. 관리자가 데이터를 업로드했는지 확인하세요. 오류: {e}")
-    st.stop() # 데이터가 없으면 앱 실행 중지
+    st.stop()
 
-# --- 이하 대시보드 UI는 이전과 거의 동일 ---
+# --- 이하 대시보드 UI는 이전과 동일 ---
 st.sidebar.header('필터')
 
 group_options = df['영업그룹'].unique()
