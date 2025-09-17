@@ -9,18 +9,27 @@ st.title('📱 재고 현황 대시보드')
 # Render 환경 변수에서 데이터베이스 URL 가져오기
 DB_URL = os.environ.get('DATABASE_URL')
 
-# <<< --- 수정된 부분 시작 --- >>>
-# SQLAlchemy가 주소를 올바르게 인식하도록 URL 형식 수정
-if DB_URL and DB_URL.startswith("postgres://"):
-    DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
-# <<< --- 수정된 부분 끝 --- >>>
+# <<< --- 최종 수정: URL을 안전하게 교정하는 코드 --- >>>
+if DB_URL:
+    # 1. 앞뒤 공백이나 눈에 보이지 않는 줄바꿈 문자 제거
+    DB_URL = DB_URL.strip()
+    # 2. SQLAlchemy가 인식할 수 있도록 URL 형식 교정
+    if DB_URL.startswith("postgres://"):
+        DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
 
 # 데이터베이스 연결
 try:
+    if not DB_URL:
+        st.error("데이터베이스 URL을 찾을 수 없습니다. Render 환경 변수가 올바르게 설정되었는지 확인하세요.")
+        st.stop()
+    
     conn = st.connection('db', type='sql', url=DB_URL)
     df = conn.query('SELECT * FROM inventory_data', ttl=600)
+
 except Exception as e:
-    st.error(f"데이터베이스 연결에 실패했습니다. 관리자가 데이터를 업로드했는지 확인하세요. 오류: {e}")
+    st.error(f"데이터베이스 연결에 실패했습니다. 관리자가 데이터를 업로드했는지 확인하세요.")
+    # 상세 오류 메시지를 보고 싶을 경우 아래 주석을 해제하세요.
+    # st.error(f"상세 오류: {e}")
     st.stop()
 
 # --- 이하 대시보드 UI는 이전과 동일 ---
