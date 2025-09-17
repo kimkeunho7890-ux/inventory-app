@@ -65,35 +65,25 @@ if selected_models:
     detail_agg['재고회전율'] = (detail_agg['판매수량'] / total_agg).apply(lambda x: f"{x:.2%}")
     st.dataframe(detail_agg.sort_values(by=grouping_cols))
 
-st.header('📄 계층형 상세 데이터 보기')
-# ... (계층형 상세 보기 코드는 이전과 동일하게 유지)
-  st.header('📄 계층형 상세 데이터 보기')
-        for group in sorted(df_filtered['영업그룹'].unique()):
-            df_group = df_filtered[df_filtered['영업그룹'] == group]
-            group_stock = df_group['재고수량'].sum()
-            group_sales = df_group['판매수량'].sum()
-            group_total = group_stock + group_sales
-            group_turnover = (group_sales / group_total) if group_total > 0 else 0
-            
-            with st.expander(f"🏢 영업그룹: {group} (재고: {group_stock}, 판매: {group_sales}, 회전율: {group_turnover:.2%})"):
-                for person in sorted(df_group['담당'].unique()):
-                    df_person = df_group[df_group['담당'] == person]
-                    person_stock = df_person['재고수량'].sum()
-                    person_sales = df_person['판매수량'].sum()
-                    person_total = person_stock + person_sales
-                    person_turnover = (person_sales / person_total) if person_total > 0 else 0
-                    
-                    with st.container():
-                        st.markdown(f"**👤 담당: {person}** (재고: {person_stock}, 판매: {person_sales}, 회전율: {person_turnover:.2%})")
-                        
-                        if st.button(f"{person} 판매점별 상세 보기", key=f"btn_{group}_{person}"):
-                            df_store = df_person.groupby('출고처').agg(
-                                재고수량=('재고수량', 'sum'), 판매수량=('판매수량', 'sum')
-                            ).reset_index()
-                            store_total = df_store['재고수량'] + df_store['판매수량']
-                            df_store['재고회전율'] = np.divide(df_store['판매수량'], store_total, out=np.zeros_like(store_total, dtype=float), where=store_total!=0)
-                            df_store['재고회전율'] = df_store['재고회전율'].apply(lambda x: f"{x:.2%}")
-                            st.dataframe(df_store)
-
-else:
-    st.info('사이드바에서 재고 및 판매 리스트 CSV 파일을 업로드해주세요.')
+ st.header('📄 계층형 상세 데이터 보기')
+    for group in [g for g in group_options if g in df_filtered['영업그룹'].unique()]:
+        df_group = df_filtered[df_filtered['영업그룹'] == group]
+        # ... (이하 계층형 보기 코드는 이전과 동일)
+        group_stock = df_group['재고수량'].sum(); group_sales = df_group['판매수량'].sum()
+        group_turnover = (group_sales / (group_stock + group_sales)) if (group_stock + group_sales) > 0 else 0
+        with st.expander(f"🏢 **영업그룹: {group}** (재고: {group_stock}, 판매: {group_sales}, 회전율: {group_turnover:.2%})"):
+            for person in sorted(df_group['담당'].unique()):
+                df_person = df_group[df_group['담당'] == person]
+                person_stock = df_person['재고수량'].sum(); person_sales = df_person['판매수량'].sum()
+                person_turnover = (person_sales / (person_stock + person_sales)) if (person_stock + person_sales) > 0 else 0
+                with st.expander(f"👤 **담당: {person}** (재고: {person_stock}, 판매: {person_sales}, 회전율: {person_turnover:.2%})"):
+                    df_store = df_person.groupby('출고처').agg(재고수량=('재고수량', 'sum'), 판매수량=('판매수량', 'sum')).reset_index()
+                    store_total = df_store['재고수량'] + df_store['판매수량']
+                    df_store['재고회전율'] = np.divide(df_store['판매수량'], store_total, out=np.zeros_like(store_total, dtype=float), where=store_total!=0).apply(lambda x: f"{x:.2%}")
+                    for idx, row in df_store.iterrows():
+                        with st.expander(f"🏪 **판매점: {row['출고처']}** (재고: {row['재고수량']}, 판매: {row['판매수량']}, 회전율: {row['재고회전율']})"):
+                            df_model = df_person[df_person['출고처'] == row['출고처']]
+                            model_detail = df_model.groupby('모델명').agg(재고수량=('재고수량', 'sum'), 판매수량=('판매수량', 'sum')).reset_index()
+                            model_total = model_detail['재고수량'] + model_detail['판매수량']
+                            model_detail['재고회전율'] = np.divide(model_detail['판매수량'], model_total, out=np.zeros_like(model_total, dtype=float), where=model_total!=0).apply(lambda x: f"{x:.2%}")
+                            st.dataframe(model_detail)
