@@ -4,6 +4,30 @@ import numpy as np
 import os
 
 st.set_page_config(layout="wide")
+
+# --- <<< 모바일 화면 최적화를 위한 스타일 코드 추가 >>> ---
+# 테이블의 글자 크기와 여백을 줄여 화면에 더 많은 정보를 표시합니다.
+st.markdown("""
+<style>
+    /* 데이터프레임의 기본 CSS를 수정합니다 */
+    .stDataFrame {
+        font-size: 0.8rem;
+    }
+    /* 테이블 셀(th, td)의 여백을 줄입니다 */
+    .stDataFrame th, .stDataFrame td {
+        padding: 4px 5px;
+    }
+    /* expander 내부의 테이블도 동일하게 적용합니다 */
+    .streamlit-expander .stDataFrame {
+        font-size: 0.8rem;
+    }
+    .streamlit-expander .stDataFrame th, .streamlit-expander .stDataFrame td {
+        padding: 4px 5px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
 st.title('📱 재고 현황 대시보드 (최종 완성본)')
 
 DB_URL = os.environ.get('DATABASE_URL')
@@ -25,17 +49,15 @@ except Exception as e:
     st.error(f"데이터베이스 연결에 실패했습니다. 관리자가 데이터를 업로드했는지 확인하세요.")
     st.stop()
 
-# --- <<< 오류 수정: 데이터베이스에서 읽어온 후 순서 재지정 >>> ---
+# 데이터베이스에서 읽어온 후 순서 재지정
 all_groups = df['영업그룹'].unique()
 custom_order = ['부산', '울산', '경남', '대구', '경주포항', '구미']
 remaining_groups = sorted([g for g in all_groups if g not in custom_order])
 final_order = custom_order + remaining_groups
 df['영업그룹'] = pd.Categorical(df['영업그룹'], categories=final_order, ordered=True)
 
-
 st.sidebar.header('필터')
 
-# 이제 이 코드는 정상적으로 작동합니다.
 group_options = df['영업그룹'].cat.categories.tolist()
 selected_groups = st.sidebar.multiselect('영업그룹', group_options, default=group_options)
 
@@ -69,8 +91,8 @@ st.header('🔎 상세 검색')
 show_color = st.checkbox("색상별 상세 보기")
 
 default_selection = [st.session_state.clicked_model] if st.session_state.clicked_model else []
-all_models = sorted(df['모델명'].unique())
-selected_models = st.multiselect("모델명을 선택하세요", all_models, default=default_selection)
+inventory_sorted_models = df.groupby('모델명')['재고수량'].sum().sort_values(ascending=False).index.tolist()
+selected_models = st.multiselect("모델명을 선택하세요", inventory_sorted_models, default=default_selection)
 
 if selected_models:
     detail_summary = df[df['모델명'].isin(selected_models)]
@@ -80,7 +102,11 @@ if selected_models:
     detail_agg['재고회전율'] = (detail_agg['판매수량'] / total_agg).apply(lambda x: f"{x:.2%}")
     
     detail_agg['영업그룹'] = pd.Categorical(detail_agg['영업그룹'], categories=df['영업그룹'].cat.categories, ordered=True)
-    st.dataframe(detail_agg.sort_values(by=['영업그룹', '판매수량'], ascending=[True, False]), use_container_width=True)
+    
+    # --- <<< 순번 제거를 위해 to_html 사용 및 정렬 >>> ---
+    sorted_detail_agg = detail_agg.sort_values(by=['영업그룹', '판매수량'], ascending=[True, False])
+    st.markdown(sorted_detail_agg.to_html(index=False), unsafe_allow_html=True)
+
 
 st.header('📄 계층형 상세 데이터 보기')
 
@@ -117,4 +143,6 @@ for group in [g for g in group_options if g in df_filtered['영업그룹'].uniqu
                         
                         model_total = model_detail['재고수량'] + model_detail['판매수량']
                         model_detail['재고회전율'] = (model_detail['판매수량'] / model_total).apply(lambda x: f"{x:.2%}")
-                        st.dataframe(model_detail, use_container_width=True)
+                        
+                        # --- <<< 순번 제거를 위해 to_html 사용 >>> ---
+                        st.markdown(model_detail.to_html(index=False), unsafe_allow_html=True)
