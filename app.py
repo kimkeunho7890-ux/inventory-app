@@ -28,16 +28,13 @@ except Exception as e:
 st.sidebar.header('필터')
 
 group_options = df['영업그룹'].unique()
-# --- <<< 바로 이 부분의 오타를 수정했습니다! >>> ---
 selected_groups = st.sidebar.multiselect('영업그룹', group_options, default=group_options)
 
 available_personnel = df[df['영업그룹'].isin(selected_groups)]['담당'].unique()
-# --- <<< 이 부분도 함께 수정했습니다! >>> ---
 selected_personnel = st.sidebar.multiselect('담당', available_personnel, default=available_personnel)
 
 df_filtered = df[df['영업그룹'].isin(selected_groups) & df['담당'].isin(selected_personnel)]
 
-# --- 이하 코드는 이전과 동일합니다 ---
 st.header('📊 모델별 재고/판매 요약')
 model_summary = df_filtered.groupby('모델명').agg(재고수량=('재고수량', 'sum'), 판매수량=('판매수량', 'sum')).reset_index().sort_values(by='판매수량', ascending=False)
 fig = px.bar(model_summary.head(15), x='모델명', y=['재고수량', '판매수량'], title='모델별 판매 수량 (상위 15개)', barmode='group', text_auto=True)
@@ -65,25 +62,25 @@ if selected_models:
     detail_agg['재고회전율'] = (detail_agg['판매수량'] / total_agg).apply(lambda x: f"{x:.2%}")
     st.dataframe(detail_agg.sort_values(by=grouping_cols))
 
- st.header('📄 계층형 상세 데이터 보기')
-    for group in [g for g in group_options if g in df_filtered['영업그룹'].unique()]:
-        df_group = df_filtered[df_filtered['영업그룹'] == group]
-        # ... (이하 계층형 보기 코드는 이전과 동일)
-        group_stock = df_group['재고수량'].sum(); group_sales = df_group['판매수량'].sum()
-        group_turnover = (group_sales / (group_stock + group_sales)) if (group_stock + group_sales) > 0 else 0
-        with st.expander(f"🏢 **영업그룹: {group}** (재고: {group_stock}, 판매: {group_sales}, 회전율: {group_turnover:.2%})"):
-            for person in sorted(df_group['담당'].unique()):
-                df_person = df_group[df_group['담당'] == person]
-                person_stock = df_person['재고수량'].sum(); person_sales = df_person['판매수량'].sum()
-                person_turnover = (person_sales / (person_stock + person_sales)) if (person_stock + person_sales) > 0 else 0
-                with st.expander(f"👤 **담당: {person}** (재고: {person_stock}, 판매: {person_sales}, 회전율: {person_turnover:.2%})"):
-                    df_store = df_person.groupby('출고처').agg(재고수량=('재고수량', 'sum'), 판매수량=('판매수량', 'sum')).reset_index()
-                    store_total = df_store['재고수량'] + df_store['판매수량']
-                    df_store['재고회전율'] = np.divide(df_store['판매수량'], store_total, out=np.zeros_like(store_total, dtype=float), where=store_total!=0).apply(lambda x: f"{x:.2%}")
-                    for idx, row in df_store.iterrows():
-                        with st.expander(f"🏪 **판매점: {row['출고처']}** (재고: {row['재고수량']}, 판매: {row['판매수량']}, 회전율: {row['재고회전율']})"):
-                            df_model = df_person[df_person['출고처'] == row['출고처']]
-                            model_detail = df_model.groupby('모델명').agg(재고수량=('재고수량', 'sum'), 판매수량=('판매수량', 'sum')).reset_index()
-                            model_total = model_detail['재고수량'] + model_detail['판매수량']
-                            model_detail['재고회전율'] = np.divide(model_detail['판매수량'], model_total, out=np.zeros_like(model_total, dtype=float), where=model_total!=0).apply(lambda x: f"{x:.2%}")
-                            st.dataframe(model_detail)
+st.header('📄 계층형 상세 데이터 보기')
+group_options_list = df_filtered['영업그룹'].unique().tolist()
+for group in group_options_list:
+    df_group = df_filtered[df_filtered['영업그룹'] == group]
+    group_stock = df_group['재고수량'].sum(); group_sales = df_group['판매수량'].sum()
+    group_turnover = (group_sales / (group_stock + group_sales)) if (group_stock + group_sales) > 0 else 0
+    with st.expander(f"🏢 **영업그룹: {group}** (재고: {group_stock}, 판매: {group_sales}, 회전율: {group_turnover:.2%})"):
+        for person in sorted(df_group['담당'].unique()):
+            df_person = df_group[df_group['담당'] == person]
+            person_stock = df_person['재고수량'].sum(); person_sales = df_person['판매수량'].sum()
+            person_turnover = (person_sales / (person_stock + person_sales)) if (person_stock + person_sales) > 0 else 0
+            with st.expander(f"👤 **담당: {person}** (재고: {person_stock}, 판매: {person_sales}, 회전율: {person_turnover:.2%})"):
+                df_store = df_person.groupby('출고처').agg(재고수량=('재고수량', 'sum'), 판매수량=('판매수량', 'sum')).reset_index()
+                store_total = df_store['재고수량'] + df_store['판매수량']
+                df_store['재고회전율'] = (df_store['판매수량'] / store_total).apply(lambda x: f"{x:.2%}")
+                for idx, row in df_store.iterrows():
+                    with st.expander(f"🏪 **판매점: {row['출고처']}** (재고: {row['재고수량']}, 판매: {row['판매수량']}, 회전율: {row['재고회전율']})"):
+                        df_model = df_person[df_person['출고처'] == row['출고처']]
+                        model_detail = df_model.groupby('모델명').agg(재고수량=('재고수량', 'sum'), 판매수량=('판매수량', 'sum')).reset_index()
+                        model_total = model_detail['재고수량'] + model_detail['판매수량']
+                        model_detail['재고회전율'] = (model_detail['판매수량'] / model_total).apply(lambda x: f"{x:.2%}")
+                        st.dataframe(model_detail)
