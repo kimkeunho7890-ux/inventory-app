@@ -4,7 +4,7 @@ import os
 import numpy as np
 
 # --- 여기에 원하는 비밀번호를 설정하세요 ---
-ADMIN_PASSWORD = "your_password123" 
+ADMIN_PASSWORD = "2178149594" 
 
 st.title("🔑 관리자 페이지")
 
@@ -85,4 +85,5 @@ if password == ADMIN_PASSWORD:
                 st.error(f"업로드 중 오류가 발생했습니다: {e}")
 
 elif password:
+
     st.error("비밀번호가 틀렸습니다.")
