@@ -25,9 +25,17 @@ except Exception as e:
     st.error(f"데이터베이스 연결에 실패했습니다. 관리자가 데이터를 업로드했는지 확인하세요.")
     st.stop()
 
+# --- <<< 오류 수정: 데이터베이스에서 읽어온 후 순서 재지정 >>> ---
+all_groups = df['영업그룹'].unique()
+custom_order = ['부산', '울산', '경남', '대구', '경주포항', '구미']
+remaining_groups = sorted([g for g in all_groups if g not in custom_order])
+final_order = custom_order + remaining_groups
+df['영업그룹'] = pd.Categorical(df['영업그룹'], categories=final_order, ordered=True)
+
+
 st.sidebar.header('필터')
 
-# 데이터 로딩 시 설정된 Categorical 순서를 사용하기 위해 df에서 직접 가져옴
+# 이제 이 코드는 정상적으로 작동합니다.
 group_options = df['영업그룹'].cat.categories.tolist()
 selected_groups = st.sidebar.multiselect('영업그룹', group_options, default=group_options)
 
@@ -36,7 +44,6 @@ selected_personnel = st.sidebar.multiselect('담당', available_personnel, defau
 
 df_filtered = df[df['영업그룹'].isin(selected_groups) & df['담당'].isin(selected_personnel)]
 
-# --- <<< 1. 모델별 요약 테이블 형태 변경 >>> ---
 st.header('📊 모델별 판매 요약 (상위 20개)')
 model_summary = df_filtered.groupby('모델명').agg(
     재고수량=('재고수량', 'sum'),
@@ -46,11 +53,9 @@ model_summary = df_filtered.groupby('모델명').agg(
 total_volume_summary = model_summary['재고수량'] + model_summary['판매수량']
 model_summary['재고회전율'] = np.divide(model_summary['판매수량'], total_volume_summary, out=np.zeros_like(total_volume_summary, dtype=float), where=total_volume_summary!=0).apply(lambda x: f"{x:.2%}")
 
-# 상위 20개 모델 선택 후 테이블 가로/세로 전환
 top_20_summary = model_summary.head(20)
 st.dataframe(top_20_summary.T, use_container_width=True)
 
-# --- <<< 2. 모델명 클릭(버튼) 기능 다시 추가 >>> ---
 st.write("📈 **요약 모델 바로 조회**")
 top_20_models = top_20_summary.index.tolist()
 if 'clicked_model' not in st.session_state: st.session_state.clicked_model = None
@@ -63,7 +68,6 @@ for i, model_name in enumerate(top_20_models):
 st.header('🔎 상세 검색')
 show_color = st.checkbox("색상별 상세 보기")
 
-# 클릭된 모델이 있으면 기본값으로 설정
 default_selection = [st.session_state.clicked_model] if st.session_state.clicked_model else []
 all_models = sorted(df['모델명'].unique())
 selected_models = st.multiselect("모델명을 선택하세요", all_models, default=default_selection)
@@ -78,10 +82,8 @@ if selected_models:
     detail_agg['영업그룹'] = pd.Categorical(detail_agg['영업그룹'], categories=df['영업그룹'].cat.categories, ordered=True)
     st.dataframe(detail_agg.sort_values(by=['영업그룹', '판매수량'], ascending=[True, False]), use_container_width=True)
 
-# --- <<< 3. 계층형 보기에서 지정된 순서로 정렬 >>> ---
 st.header('📄 계층형 상세 데이터 보기')
 
-# group_options는 이미 지정된 순서를 따름
 for group in [g for g in group_options if g in df_filtered['영업그룹'].unique()]:
     df_group = df_filtered[df_filtered['영업그룹'] == group]
     group_stock = df_group['재고수량'].sum()
