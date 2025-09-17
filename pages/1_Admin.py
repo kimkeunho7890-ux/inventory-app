@@ -66,7 +66,7 @@ if password == ADMIN_PASSWORD:
 
                 if DB_URL:
                     DB_URL = DB_URL.strip()
-                    if DB_URL.startswith("postgres://"):
+                    if DB_URL.startswith("postgresql://"):
                         DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
                 
                 if not DB_URL:
@@ -87,3 +87,4 @@ if password == ADMIN_PASSWORD:
 elif password:
 
     st.error("비밀번호가 틀렸습니다.")
+
