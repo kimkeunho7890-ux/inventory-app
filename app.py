@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import os
+import numpy as np
 
+# st.set_page_config는 스크립트에서 한 번만 호출할 수 있습니다.
+# 이전에 호출된 적이 없다면 여기에 그대로 둡니다.
 st.set_page_config(layout="wide")
 st.title('📱 재고 현황 대시보드 (최종 완성본)')
 
@@ -35,24 +36,25 @@ selected_personnel = st.sidebar.multiselect('담당', available_personnel, defau
 
 df_filtered = df[df['영업그룹'].isin(selected_groups) & df['담당'].isin(selected_personnel)]
 
-st.header('📊 모델별 재고/판매 요약')
-model_summary = df_filtered.groupby('모델명').agg(재고수량=('재고수량', 'sum'), 판매수량=('판매수량', 'sum')).reset_index().sort_values(by='판매수량', ascending=False)
-fig = px.bar(model_summary.head(15), x='모델명', y=['재고수량', '판매수량'], title='모델별 판매 수량 (상위 15개)', barmode='group', text_auto=True)
-fig.update_traces(textposition='outside'); st.plotly_chart(fig, use_container_width=True)
+# --- <<< 그래프 제거 및 상위 20개 테이블로 변경 >>> ---
+st.header('📊 모델별 판매 요약 (상위 20개)')
+model_summary = df_filtered.groupby('모델명').agg(
+    재고수량=('재고수량', 'sum'),
+    판매수량=('판매수량', 'sum')
+).sort_values(by='판매수량', ascending=False)
 
-st.write("📈 **그래프 모델 바로 조회**")
-top_15_models = model_summary.head(15)['모델명'].tolist()
-if 'clicked_model' not in st.session_state: st.session_state.clicked_model = None
-cols = st.columns(5)
-for i, model_name in enumerate(top_15_models):
-    if cols[i % 5].button(model_name, key=f"model_btn_{i}"):
-        st.session_state.clicked_model = model_name
+# 재고회전율 계산
+total_volume_summary = model_summary['재고수량'] + model_summary['판매수량']
+model_summary['재고회전율'] = np.divide(model_summary['판매수량'], total_volume_summary, out=np.zeros_like(total_volume_summary, dtype=float), where=total_volume_summary!=0).apply(lambda x: f"{x:.2%}")
 
+# 상위 20개 모델을 테이블로 표시하고, 화면 폭에 맞춤
+st.dataframe(model_summary.head(20), use_container_width=True)
+
+# --- <<< 그래프 관련 조회 기능 제거 >>> ---
 st.header('🔎 상세 검색')
 show_color = st.checkbox("색상별 상세 보기")
-default_selection = [st.session_state.clicked_model] if st.session_state.clicked_model else []
 all_models = sorted(df['모델명'].unique())
-selected_models = st.multiselect("모델명을 선택하세요", all_models, default=default_selection)
+selected_models = st.multiselect("모델명을 선택하세요", all_models)
 
 if selected_models:
     detail_summary = df[df['모델명'].isin(selected_models)]
@@ -61,10 +63,9 @@ if selected_models:
     total_agg = detail_agg['재고수량'] + detail_agg['판매수량']
     detail_agg['재고회전율'] = (detail_agg['판매수량'] / total_agg).apply(lambda x: f"{x:.2%}")
     
-    # --- <<< 상세 검색 정렬 순서 수정 >>> ---
-    # 영업그룹 순서로 먼저 정렬한 후, 판매수량으로 다시 정렬합니다.
     detail_agg['영업그룹'] = pd.Categorical(detail_agg['영업그룹'], categories=df['영업그룹'].cat.categories, ordered=True)
-    st.dataframe(detail_agg.sort_values(by=['영업그룹', '판매수량'], ascending=[True, False]))
+    # 화면 폭에 맞춤
+    st.dataframe(detail_agg.sort_values(by=['영업그룹', '판매수량'], ascending=[True, False]), use_container_width=True)
 
 st.header('📄 계층형 상세 데이터 보기')
 group_options_list = df_filtered['영업그룹'].unique().tolist()
@@ -102,4 +103,5 @@ for group in group_options_list:
                         
                         model_total = model_detail['재고수량'] + model_detail['판매수량']
                         model_detail['재고회전율'] = (model_detail['판매수량'] / model_total).apply(lambda x: f"{x:.2%}")
-                        st.dataframe(model_detail)
+                        # 화면 폭에 맞춤
+                        st.dataframe(model_detail, use_container_width=True)
