@@ -69,7 +69,6 @@ st.write("📈 **요약 모델 바로 조회**")
 top_20_models = top_20_summary.index.tolist()
 if 'clicked_model' not in st.session_state: st.session_state.clicked_model = None
 
-# --- <<< 버튼 간격을 "small"로 조정 >>> ---
 cols = st.columns(5, gap="small")
 for i, model_name in enumerate(top_20_models):
     if cols[i % 5].button(model_name, key=f"model_btn_{i}"):
@@ -90,7 +89,15 @@ if selected_models:
     detail_agg['재고회전율'] = (detail_agg['판매수량'] / total_agg).apply(lambda x: f"{x:.2%}")
     
     detail_agg['영업그룹'] = pd.Categorical(detail_agg['영업그룹'], categories=df['영업그룹'].cat.categories, ordered=True)
-    sorted_detail_agg = detail_agg.sort_values(by=['영업그룹', '판매수량'], ascending=[True, False])
+    
+    # --- <<< 색상별 보기 시 정렬 순서 변경 >>> ---
+    if show_color:
+        # 색상 기준으로 먼저 정렬하고, 그 다음 영업그룹 순으로 정렬
+        sorted_detail_agg = detail_agg.sort_values(by=['모델명', '단말기색상', '영업그룹'])
+    else:
+        # 기존 방식: 영업그룹 기준으로 먼저 정렬하고, 그 다음 판매량 순으로 정렬
+        sorted_detail_agg = detail_agg.sort_values(by=['영업그룹', '판매수량'], ascending=[True, False])
+        
     st.markdown(sorted_detail_agg.to_html(index=False), unsafe_allow_html=True)
 
 st.header('📄 계층형 상세 데이터 보기')
