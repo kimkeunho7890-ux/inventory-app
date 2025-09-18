@@ -53,6 +53,7 @@ selected_personnel = st.sidebar.multiselect('담당', available_personnel, defau
 
 df_filtered = df[df['영업그룹'].isin(selected_groups) & df['담당'].isin(selected_personnel)]
 
+# --- <<< 1. 모델별 요약 테이블 형태 및 조회 방식 변경 >>> ---
 st.header('📊 모델별 판매 요약 (상위 20개)')
 model_summary = df_filtered.groupby('모델명').agg(
     재고수량=('재고수량', 'sum'),
@@ -62,17 +63,29 @@ model_summary = df_filtered.groupby('모델명').agg(
 total_volume_summary = model_summary['재고수량'] + model_summary['판매수량']
 model_summary['재고회전율'] = np.divide(model_summary['판매수량'], total_volume_summary, out=np.zeros_like(total_volume_summary, dtype=float), where=total_volume_summary!=0).apply(lambda x: f"{x:.2%}")
 
-top_20_summary = model_summary.head(20)
-st.dataframe(top_20_summary.T, use_container_width=True)
+top_20_summary = model_summary.head(20).reset_index()
 
-st.write("📈 **요약 모델 바로 조회**")
-top_20_models = top_20_summary.index.tolist()
+# 세션 상태 초기화
 if 'clicked_model' not in st.session_state: st.session_state.clicked_model = None
 
-cols = st.columns(5, gap="small")
-for i, model_name in enumerate(top_20_models):
-    if cols[i % 5].button(model_name, key=f"model_btn_{i}"):
-        st.session_state.clicked_model = model_name
+# 테이블 헤더 생성
+header_cols = st.columns((3, 1, 1, 1, 1.5))
+headers = ['모델명', '재고', '판매', '회전율', '상세보기']
+for col, header in zip(header_cols, headers):
+    col.markdown(f'**{header}**')
+
+# 각 행을 반복하며 버튼과 함께 데이터 표시
+for idx, row in top_20_summary.iterrows():
+    row_cols = st.columns((3, 1, 1, 1, 1.5))
+    row_cols[0].write(row['모델명'])
+    row_cols[1].write(row['재고수량'])
+    row_cols[2].write(row['판매수량'])
+    row_cols[3].write(row['재고회전율'])
+    if row_cols[4].button('상세보기', key=f"detail_btn_{idx}"):
+        st.session_state.clicked_model = row['모델명']
+        # 버튼 클릭 시 화면을 새로고침하여 상세 검색에 즉시 반영
+        st.rerun()
+
 
 st.header('🔎 상세 검색')
 show_color = st.checkbox("색상별 상세 보기")
@@ -90,12 +103,9 @@ if selected_models:
     
     detail_agg['영업그룹'] = pd.Categorical(detail_agg['영업그룹'], categories=df['영업그룹'].cat.categories, ordered=True)
     
-    # --- <<< 색상별 보기 시 정렬 순서 변경 >>> ---
     if show_color:
-        # 색상 기준으로 먼저 정렬하고, 그 다음 영업그룹 순으로 정렬
         sorted_detail_agg = detail_agg.sort_values(by=['모델명', '단말기색상', '영업그룹'])
     else:
-        # 기존 방식: 영업그룹 기준으로 먼저 정렬하고, 그 다음 판매량 순으로 정렬
         sorted_detail_agg = detail_agg.sort_values(by=['영업그룹', '판매수량'], ascending=[True, False])
         
     st.markdown(sorted_detail_agg.to_html(index=False), unsafe_allow_html=True)
