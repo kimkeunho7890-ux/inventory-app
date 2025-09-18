@@ -53,7 +53,6 @@ selected_personnel = st.sidebar.multiselect('담당', available_personnel, defau
 
 df_filtered = df[df['영업그룹'].isin(selected_groups) & df['담당'].isin(selected_personnel)]
 
-# --- <<< 1. 모델별 요약 테이블 형태 및 조회 방식 변경 >>> ---
 st.header('📊 모델별 판매 요약 (상위 20개)')
 model_summary = df_filtered.groupby('모델명').agg(
     재고수량=('재고수량', 'sum'),
@@ -63,36 +62,17 @@ model_summary = df_filtered.groupby('모델명').agg(
 total_volume_summary = model_summary['재고수량'] + model_summary['판매수량']
 model_summary['재고회전율'] = np.divide(model_summary['판매수량'], total_volume_summary, out=np.zeros_like(total_volume_summary, dtype=float), where=total_volume_summary!=0).apply(lambda x: f"{x:.2%}")
 
-top_20_summary = model_summary.head(20).reset_index()
+top_20_summary = model_summary.head(20)
+st.dataframe(top_20_summary.T, use_container_width=True)
 
-# 세션 상태 초기화
-if 'clicked_model' not in st.session_state: st.session_state.clicked_model = None
-
-# 테이블 헤더 생성
-header_cols = st.columns((3, 1, 1, 1, 1.5))
-headers = ['모델명', '재고', '판매', '회전율', '상세보기']
-for col, header in zip(header_cols, headers):
-    col.markdown(f'**{header}**')
-
-# 각 행을 반복하며 버튼과 함께 데이터 표시
-for idx, row in top_20_summary.iterrows():
-    row_cols = st.columns((3, 1, 1, 1, 1.5))
-    row_cols[0].write(row['모델명'])
-    row_cols[1].write(row['재고수량'])
-    row_cols[2].write(row['판매수량'])
-    row_cols[3].write(row['재고회전율'])
-    if row_cols[4].button('상세보기', key=f"detail_btn_{idx}"):
-        st.session_state.clicked_model = row['모델명']
-        # 버튼 클릭 시 화면을 새로고침하여 상세 검색에 즉시 반영
-        st.rerun()
-
+# --- <<< "요약 모델 바로 조회" 버튼 섹션 제거 >>> ---
 
 st.header('🔎 상세 검색')
 show_color = st.checkbox("색상별 상세 보기")
 
-default_selection = [st.session_state.clicked_model] if st.session_state.clicked_model else []
 inventory_sorted_models = df.groupby('모델명')['재고수량'].sum().sort_values(ascending=False).index.tolist()
-selected_models = st.multiselect("모델명을 선택하세요", inventory_sorted_models, default=default_selection)
+# "요약 모델 바로 조회" 기능이 없으므로 default 선택 기능도 제거
+selected_models = st.multiselect("모델명을 선택하세요", inventory_sorted_models)
 
 if selected_models:
     detail_summary = df[df['모델명'].isin(selected_models)]
