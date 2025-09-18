@@ -15,33 +15,42 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title('📱 재고 현황 대시보드 (최종 완성본)')
+st.title('📱 재고 현황 대시보드 (속도 개선 버전)')
 
-DB_URL = os.environ.get('DATABASE_URL')
+# --- <<< 속도 개선을 위한 캐싱 함수 >>> ---
+# 이 함수는 맨 처음 한 번만 실행되고, 그 결과는 임시 저장(캐시)됩니다.
+@st.cache_data(ttl=600) # 600초(10분)마다 캐시 만료
+def load_data_from_db():
+    DB_URL = os.environ.get('DATABASE_URL')
+    if not DB_URL:
+        st.error("데이터베이스 URL을 찾을 수 없습니다. Render 환경 변수가 올바르게 설정되었는지 확인하세요.")
+        return None
 
-if DB_URL:
-    DB_URL = DB_URL.strip()
     if DB_URL.startswith("postgres://"):
         DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
 
-try:
-    if not DB_URL:
-        st.error("데이터베이스 URL을 찾을 수 없습니다. Render 환경 변수가 올바르게 설정되었는지 확인하세요.")
-        st.stop()
-    
-    conn = st.connection('db', type='sql', url=DB_URL)
-    df = conn.query('SELECT * FROM inventory_data', ttl=600)
+    try:
+        conn = st.connection('db', type='sql', url=DB_URL)
+        df = conn.query('SELECT * FROM inventory_data')
+        
+        # 데이터베이스에서 읽어온 후 순서 재지정
+        all_groups = df['영업그룹'].unique()
+        custom_order = ['부산', '울산', '경남', '대구', '경주포항', '구미']
+        remaining_groups = sorted([g for g in all_groups if g not in custom_order])
+        final_order = custom_order + remaining_groups
+        df['영업그룹'] = pd.Categorical(df['영업그룹'], categories=final_order, ordered=True)
+        return df
 
-except Exception as e:
-    st.error(f"데이터베이스 연결에 실패했습니다. 관리자가 데이터를 업로드했는지 확인하세요.")
+    except Exception as e:
+        st.error(f"데이터베이스 연결에 실패했습니다: {e}")
+        return None
+
+# 캐시된 데이터를 불러옵니다.
+df = load_data_from_db()
+
+# 데이터 로딩에 실패하면 앱 실행을 중지합니다.
+if df is None:
     st.stop()
-
-# 데이터베이스에서 읽어온 후 순서 재지정
-all_groups = df['영업그룹'].unique()
-custom_order = ['부산', '울산', '경남', '대구', '경주포항', '구미']
-remaining_groups = sorted([g for g in all_groups if g not in custom_order])
-final_order = custom_order + remaining_groups
-df['영업그룹'] = pd.Categorical(df['영업그룹'], categories=final_order, ordered=True)
 
 st.sidebar.header('필터')
 
