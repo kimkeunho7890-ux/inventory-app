@@ -99,7 +99,7 @@ if selected_models:
         
     st.markdown(sorted_detail_agg.to_html(index=False), unsafe_allow_html=True)
 
-st.header('📄 그룹별/담당별/판매점별')
+st.header('📄 계층형 상세 데이터 보기')
 
 for group in [g for g in group_options if g in df_filtered['영업그룹'].unique()]:
     df_group = df_filtered[df_filtered['영업그룹'] == group]
@@ -135,4 +135,3 @@ for group in [g for g in group_options if g in df_filtered['영업그룹'].uniqu
                         model_total = model_detail['재고수량'] + model_detail['판매수량']
                         model_detail['재고회전율'] = (model_detail['판매수량'] / model_total).apply(lambda x: f"{x:.2%}")
                         st.markdown(model_detail.to_html(index=False), unsafe_allow_html=True)
-
