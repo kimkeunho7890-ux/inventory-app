@@ -4,11 +4,12 @@ services:
     env: python
     plan: free
     pythonVersion: "3.11"
-    buildCommand: "pip install --no-cache-dir -r requirements.txt"
-    startCommand: "streamlit run app.py"
+    buildCommand: "pip install -r requirements.txt"
+    # 아래 startCommand가 더 안정적인 방식으로 수정되었습니다.
+    startCommand: "python -m streamlit run app.py"
     envVars:
       - key: DATABASE_URL
         fromService:
           type: psql
-          name: inventory-db # 렌더에서 만든 데이터베이스 이름과 일치해야 합니다.
+          name: inventory-db
           property: internalConnectionString
