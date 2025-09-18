@@ -15,7 +15,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title('📱 재고 현황 대시보드 (속도 개선 버전)')
+st.title('📱 재고 현황 ')
 
 # --- <<< 속도 개선을 위한 캐싱 함수 >>> ---
 # 이 함수는 맨 처음 한 번만 실행되고, 그 결과는 임시 저장(캐시)됩니다.
@@ -62,7 +62,7 @@ selected_personnel = st.sidebar.multiselect('담당', available_personnel, defau
 
 df_filtered = df[df['영업그룹'].isin(selected_groups) & df['담당'].isin(selected_personnel)]
 
-st.header('📊 모델별 판매 요약 (상위 20개)')
+st.header('📊 모델별(상위 20개)')
 model_summary = df_filtered.groupby('모델명').agg(
     재고수량=('재고수량', 'sum'),
     판매수량=('판매수량', 'sum')
@@ -99,7 +99,7 @@ if selected_models:
         
     st.markdown(sorted_detail_agg.to_html(index=False), unsafe_allow_html=True)
 
-st.header('📄 계층형 상세 데이터 보기')
+st.header('📄 그룹별/담당별/판매점별')
 
 for group in [g for g in group_options if g in df_filtered['영업그룹'].unique()]:
     df_group = df_filtered[df_filtered['영업그룹'] == group]
@@ -135,3 +135,4 @@ for group in [g for g in group_options if g in df_filtered['영업그룹'].uniqu
                         model_total = model_detail['재고수량'] + model_detail['판매수량']
                         model_detail['재고회전율'] = (model_detail['판매수량'] / model_total).apply(lambda x: f"{x:.2%}")
                         st.markdown(model_detail.to_html(index=False), unsafe_allow_html=True)
+
