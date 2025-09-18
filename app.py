@@ -12,14 +12,11 @@ st.markdown("""
     .stDataFrame th, .stDataFrame td { padding: 4px 5px; }
     .streamlit-expander .stDataFrame { font-size: 0.8rem; }
     .streamlit-expander .stDataFrame th, .streamlit-expander .stDataFrame td { padding: 4px 5px; }
-    /* 합계와 상세 내역 테이블 사이의 간격을 줄입니다 */
-    .stMarkdown {
-        margin-bottom: -20px;
-    }
+    .stMarkdown { margin-bottom: -20px; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title('📱 재고 현황')
+st.title('📱 재고 현황 대시보드 (최종 완성본)')
 
 # --- 캐싱 함수 (이전과 동일) ---
 @st.cache_data(ttl=600)
@@ -55,7 +52,7 @@ available_personnel = df[df['영업그룹'].isin(selected_groups)]['담당'].uni
 selected_personnel = st.sidebar.multiselect('담당', available_personnel, default=available_personnel)
 df_filtered = df[df['영업그룹'].isin(selected_groups) & df['담당'].isin(selected_personnel)]
 
-# --- 모델별 요약 및 조회 (이전과 동일) ---
+# --- 모델별 요약 (오류 수정) ---
 st.header('📊 모델별 판매 요약 (상위 20개)')
 model_summary = df_filtered.groupby('모델명', observed=True).agg(
     재고수량=('재고수량', 'sum'),
@@ -63,24 +60,22 @@ model_summary = df_filtered.groupby('모델명', observed=True).agg(
 ).sort_values(by='판매수량', ascending=False)
 total_volume_summary = model_summary['재고수량'] + model_summary['판매수량']
 model_summary['재고회전율'] = np.divide(model_summary['판매수량'], total_volume_summary, out=np.zeros_like(total_volume_summary, dtype=float), where=total_volume_summary!=0).apply(lambda x: f"{x:.2%}")
-top_20_summary = model_summary.head(20).reset_index()
+top_20_summary = model_summary.head(20)
 
+# --- <<< 오류 수정: 모든 데이터를 문자열로 변환 후 표시 >>> ---
+st.dataframe(top_20_summary.T.astype(str), use_container_width=True)
+
+
+st.write("📈 **요약 모델 바로 조회**")
+top_20_models = top_20_summary.index.tolist()
 if 'clicked_model' not in st.session_state: st.session_state.clicked_model = None
-header_cols = st.columns((3, 1, 1, 1, 1.5))
-headers = ['모델명', '재고', '판매', '회전율', '상세보기']
-for col, header in zip(header_cols, headers):
-    col.markdown(f'**{header}**')
-for idx, row in top_20_summary.iterrows():
-    row_cols = st.columns((3, 1, 1, 1, 1.5))
-    row_cols[0].write(row['모델명'])
-    row_cols[1].write(row['재고수량'])
-    row_cols[2].write(row['판매수량'])
-    row_cols[3].write(row['재고회전율'])
-    if row_cols[4].button('상세보기', key=f"detail_btn_{idx}"):
-        st.session_state.clicked_model = row['모델명']
+cols = st.columns(5, gap="small")
+for i, model_name in enumerate(top_20_models):
+    if cols[i % 5].button(model_name, key=f"model_btn_{i}"):
+        st.session_state.clicked_model = model_name
         st.rerun()
 
-# --- <<< 상세 검색 기능 수정: 색상별 합계 추가 >>> ---
+# --- 상세 검색 (이전과 동일) ---
 st.header('🔎 상세 검색')
 show_color = st.checkbox("색상별 상세 보기")
 default_selection = [st.session_state.clicked_model] if st.session_state.clicked_model else []
@@ -93,32 +88,23 @@ if selected_models:
     if show_color:
         grouping_cols = ['모델명', '단말기색상', '영업그룹']
         detail_agg = detail_summary.groupby(grouping_cols, observed=True).agg(재고수량=('재고수량', 'sum'), 판매수량=('판매수량', 'sum')).reset_index()
-        
-        # 선택된 모델 내에서 색상별로 루프를 돌며 합계와 상세 내역 표시
         for model in selected_models:
             model_df = detail_agg[detail_agg['모델명'] == model]
             unique_colors = model_df['단말기색상'].unique()
-            
             for color in unique_colors:
                 st.markdown(f"--- \n#### {model} ({color})")
                 color_subset_df = model_df[model_df['단말기색상'] == color]
-                
-                # 색상 전체 합계 계산 및 표시
-                total_stock = color_subset_df['재고수량'].sum()
-                total_sales = color_subset_df['판매수량'].sum()
+                total_stock = color_subset_df['재고수량'].sum(); total_sales = color_subset_df['판매수량'].sum()
                 total_volume = total_stock + total_sales
                 total_turnover = (total_sales / total_volume) if total_volume > 0 else 0
                 total_data = {'구분': ['**색상 전체 합계**'], '재고수량': [total_stock], '판매수량': [total_sales], '재고회전율': [f"{total_turnover:.2%}"]}
                 st.markdown(pd.DataFrame(total_data).to_html(index=False), unsafe_allow_html=True)
-                
-                # 영업그룹별 상세 내역 계산 및 표시
                 breakdown_df = color_subset_df[['영업그룹', '재고수량', '판매수량']].copy()
                 breakdown_volume = breakdown_df['재고수량'] + breakdown_df['판매수량']
                 breakdown_df['재고회전율'] = (breakdown_df['판매수량'] / breakdown_volume).apply(lambda x: f"{x:.2%}")
                 breakdown_df['영업그룹'] = pd.Categorical(breakdown_df['영업그룹'], categories=df['영업그룹'].cat.categories, ordered=True)
                 st.markdown(breakdown_df.sort_values(by='영업그룹').to_html(index=False), unsafe_allow_html=True)
-                
-    else: # 색상별 보기 미체크 시 (기존 로직 유지)
+    else:
         grouping_cols = ['모델명', '영업그룹']
         detail_agg = detail_summary.groupby(grouping_cols, observed=True).agg(재고수량=('재고수량', 'sum'), 판매수량=('판매수량', 'sum')).reset_index()
         total_agg = detail_agg['재고수량'] + detail_agg['판매수량']
@@ -128,8 +114,7 @@ if selected_models:
         st.markdown(sorted_detail_agg.to_html(index=False), unsafe_allow_html=True)
 
 # --- 계층형 상세 보기 (이전과 동일) ---
-st.header('📄 그룹,담당,판매점별별')
-# ... (이하 모든 코드는 이전과 동일합니다)
+st.header('📄 계층형 상세 데이터 보기')
 for group in [g for g in group_options if g in df_filtered['영업그룹'].unique()]:
     df_group = df_filtered[df_filtered['영업그룹'] == group]
     group_stock = df_group['재고수량'].sum(); group_sales = df_group['판매수량'].sum()
