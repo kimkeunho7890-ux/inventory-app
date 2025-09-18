@@ -3,13 +3,13 @@ services:
     name: inventory-app
     env: python
     plan: free
+    # 바로 이 부분이 파이썬 버전을 3.11로 고정하는 핵심 코드입니다.
     pythonVersion: "3.11"
     buildCommand: "pip install -r requirements.txt"
-    # 아래 startCommand가 더 안정적인 방식으로 수정되었습니다.
     startCommand: "python -m streamlit run app.py"
     envVars:
       - key: DATABASE_URL
         fromService:
           type: psql
-          name: inventory-db
+          name: inventory-db # 렌더에서 만든 데이터베이스 이름과 일치해야 합니다.
           property: internalConnectionString
